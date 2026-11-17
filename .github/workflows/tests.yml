@@ -11,6 +11,9 @@ jobs:
   pruebas:
     runs-on: ubuntu-latest
 
+    env:
+      JWT_SECRET: clave_temporal_para_pruebas_automatizadas
+
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
