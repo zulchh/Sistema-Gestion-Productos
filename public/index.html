@@ -1,0 +1,345 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Productos</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: #f4f6f9;
+            color: #333;
+        }
+
+        header {
+            background: #263b5e;
+            color: white;
+            padding: 22px;
+            text-align: center;
+        }
+
+        .contenedor {
+            max-width: 1000px;
+            margin: 35px auto;
+            padding: 20px;
+        }
+
+        .panel {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+            margin-bottom: 25px;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            color: #263b5e;
+        }
+
+        input, button {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background: #263b5e;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #385782;
+        }
+
+        .producto {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 7px;
+            margin-bottom: 12px;
+        }
+
+        .producto button {
+            width: auto;
+            padding: 9px 14px;
+            margin: 10px 5px 0 0;
+        }
+
+        .eliminar {
+            background: #c0392b;
+        }
+
+        .oculto {
+            display: none;
+        }
+
+        #mensaje {
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>Sistema de Gestión de Productos</h1>
+        <p>Administración y control de inventario</p>
+    </header>
+
+    <main class="contenedor">
+
+        <p id="mensaje"></p>
+
+        <section class="panel" id="panelAcceso">
+            <h2>Iniciar sesión</h2>
+
+            <input type="email" id="email" placeholder="Correo electrónico">
+            <input type="password" id="password" placeholder="Contraseña">
+
+            <button onclick="iniciarSesion()">Ingresar</button>
+
+            <hr style="margin: 20px 0;">
+
+            <h2>Crear cuenta</h2>
+
+            <input type="text" id="nombreRegistro" placeholder="Nombre completo">
+            <input type="email" id="emailRegistro" placeholder="Correo electrónico">
+            <input type="password" id="passwordRegistro" placeholder="Contraseña">
+
+            <button onclick="registrarUsuario()">Registrarse</button>
+        </section>
+
+        <section class="panel oculto" id="panelProductos">
+            <h2>Registrar producto</h2>
+
+            <input type="text" id="nombreProducto" placeholder="Nombre del producto">
+            <input type="text" id="descripcion" placeholder="Descripción">
+            <input type="number" id="precio" placeholder="Precio">
+            <input type="text" id="categoria" placeholder="Categoría">
+            <input type="number" id="cantidad" placeholder="Cantidad">
+
+            <button onclick="guardarProducto()">Guardar producto</button>
+
+            <h2 style="margin-top: 25px;">Inventario de productos</h2>
+
+            <div id="listaProductos"></div>
+
+            <button onclick="cerrarSesion()">Cerrar sesión</button>
+        </section>
+
+    </main>
+
+    <script>
+        const API = 'http://localhost:3000/api';
+        let token = localStorage.getItem('token');
+
+        const mensaje = (texto) => {
+            document.getElementById('mensaje').textContent = texto;
+        };
+
+        function mostrarPanel() {
+            document.getElementById('panelAcceso').classList.add('oculto');
+            document.getElementById('panelProductos').classList.remove('oculto');
+            cargarProductos();
+        }
+
+        async function registrarUsuario() {
+            try {
+                const respuesta = await fetch(`${API}/usuarios/registro`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nombre: document.getElementById('nombreRegistro').value,
+                        email: document.getElementById('emailRegistro').value,
+                        password: document.getElementById('passwordRegistro').value
+                    })
+                });
+
+                const datos = await respuesta.json();
+                mensaje(datos.mensaje);
+            } catch (error) {
+                mensaje('No se pudo conectar con el servidor');
+            }
+        }
+
+        async function iniciarSesion() {
+            try {
+                const respuesta = await fetch(`${API}/usuarios/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: document.getElementById('email').value,
+                        password: document.getElementById('password').value
+                    })
+                });
+
+                const datos = await respuesta.json();
+
+                if (!respuesta.ok) {
+                    mensaje(datos.mensaje);
+                    return;
+                }
+
+                token = datos.token;
+                localStorage.setItem('token', token);
+
+                mensaje('Inicio de sesión exitoso');
+                mostrarPanel();
+
+            } catch (error) {
+                mensaje('No se pudo conectar con el servidor');
+            }
+        }
+
+        async function cargarProductos() {
+            try {
+                const respuesta = await fetch(`${API}/productos`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                });
+
+                const productos = await respuesta.json();
+
+                if (!respuesta.ok) {
+                    mensaje(productos.mensaje || 'No se pudieron cargar los productos');
+                    return;
+                }
+
+                const lista = document.getElementById('listaProductos');
+                lista.innerHTML = '';
+
+                productos.forEach(producto => {
+                    lista.innerHTML += `
+                        <div class="producto">
+                            <h3>${producto.nombre}</h3>
+                            <p>${producto.descripcion}</p>
+                            <p>Precio: $${producto.precio}</p>
+                            <p>Categoría: ${producto.categoria}</p>
+                            <p>Cantidad: ${producto.cantidad}</p>
+
+                            <button onclick="editarProducto('${producto._id}', ${producto.precio}, ${producto.cantidad})">
+                                Editar
+                            </button>
+
+                            <button class="eliminar" onclick="eliminarProducto('${producto._id}')">
+                                Eliminar
+                            </button>
+                        </div>
+                    `;
+                });
+
+            } catch (error) {
+                mensaje('Error al cargar los productos');
+            }
+        }
+
+        async function guardarProducto() {
+            try {
+                const producto = {
+                    nombre: document.getElementById('nombreProducto').value,
+                    descripcion: document.getElementById('descripcion').value,
+                    precio: Number(document.getElementById('precio').value),
+                    categoria: document.getElementById('categoria').value,
+                    cantidad: Number(document.getElementById('cantidad').value)
+                };
+
+                const respuesta = await fetch(`${API}/productos`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify(producto)
+                });
+
+                const datos = await respuesta.json();
+                mensaje(datos.mensaje);
+
+                if (respuesta.ok) {
+                    cargarProductos();
+                }
+            } catch (error) {
+                mensaje('Error al guardar el producto');
+            }
+        }
+
+        async function editarProducto(id, precioActual, cantidadActual) {
+            const precio = prompt('Nuevo precio:', precioActual);
+            if (precio === null) return;
+
+            const cantidad = prompt('Nueva cantidad:', cantidadActual);
+            if (cantidad === null) return;
+
+            try {
+                const respuesta = await fetch(`${API}/productos/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        precio: Number(precio),
+                        cantidad: Number(cantidad)
+                    })
+                });
+
+                const datos = await respuesta.json();
+                mensaje(datos.mensaje);
+
+                if (respuesta.ok) cargarProductos();
+            } catch (error) {
+                mensaje('Error al actualizar el producto');
+            }
+        }
+
+        async function eliminarProducto(id) {
+            if (!confirm('¿Deseas eliminar este producto?')) return;
+
+            try {
+                const respuesta = await fetch(`${API}/productos/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                });
+
+                const datos = await respuesta.json();
+                mensaje(datos.mensaje);
+
+                if (respuesta.ok) cargarProductos();
+            } catch (error) {
+                mensaje('Error al eliminar el producto');
+            }
+        }
+
+        function cerrarSesion() {
+            localStorage.removeItem('token');
+            token = null;
+
+            document.getElementById('panelProductos').classList.add('oculto');
+            document.getElementById('panelAcceso').classList.remove('oculto');
+
+            mensaje('Sesión cerrada correctamente');
+        }
+
+        if (token) {
+            mostrarPanel();
+        }
+    </script>
+
+</body>
+</html>
